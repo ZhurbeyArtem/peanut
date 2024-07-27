@@ -1,25 +1,19 @@
-import axios from 'axios';
+import { ExchangeName } from './exchanges.enum';
 
-export const kucoinGetPrice = async (input: string) => {
-  const { data: kucoin } = await axios.get(
-    `https://api.kucoin.com/api/v1/market/histories?symbol=${input}-USDT`,
-  );
-  return kucoin.data[kucoin.data.length - 1].price;
+export const getPrices = async (
+  exchanges,
+  inputCurrency: string,
+  outputCurrency: string,
+): Promise<{ exchangeName: ExchangeName; price: number }[]> => {
+  try {
+    const prices = await Promise.all(
+      exchanges.map(async (exchange) => {
+        const price = await exchange.getPrice(inputCurrency, outputCurrency);
+        return { exchangeName: exchange.getName(), price };
+      }),
+    );
+    return prices;
+  } catch (error) {
+    throw error;
+  }
 };
-
-export const binanceGetPrice = async (input: string) => {
-  const { data: binance } = await axios.get(
-    `https://api.binance.com/api/v3/trades?symbol=${input}USDT`,
-  );
-  return binance[binance.length - 1].price;
-};
-
-export const calculateConvertedValue = (
-  inputValue: number,
-  outputValue: number,
-  inputAmount: number,
-) => {
-  const totalValue = inputValue * inputAmount;
-  return totalValue / outputValue;
-};
-

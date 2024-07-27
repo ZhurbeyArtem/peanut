@@ -1,89 +1,59 @@
-import { Injectable } from '@nestjs/common';
-import {
-  binanceGetPrice,
-  calculateConvertedValue,
-  kucoinGetPrice,
-} from './exchanges.utils';
-import { ExchangeName } from './exchanges.enum';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { getPrices } from './exchanges.utils';
+import { BinanceExchange } from './exchanges/binance.exchange';
+import { KuCoinExchange } from './exchanges/kuckoin.exchange';
+import { Exchange } from './exchanges/exchange.interface';
 
 @Injectable()
 export class ExchangesService {
-  async estimate({ inputCurrency, outputCurrency, inputAmount }) {
+  private exchanges: Exchange[];
+
+  constructor() {
+    this.exchanges = [new BinanceExchange(), new KuCoinExchange()]; //нову біржу добавляти сюди
+  }
+
+  async estimate({ inputAmount, inputCurrency, outputCurrency }) {
     try {
-      let valueKucoinInput = 1,
-        valueBinanceInput = 1,
-        valueKucoinOutput = 1,
-        valueBinanceOutput = 1;
+      const prices = await getPrices(
+        this.exchanges,
+        inputCurrency,
+        outputCurrency,
+      );
 
-      //потрібно в випадку коли ми хочем конвертувати btc в eth
-      if (inputCurrency !== 'USDT') {
-        const kucoinInput = await kucoinGetPrice(inputCurrency);
-        const binanceInput = await binanceGetPrice(inputCurrency);
-        valueKucoinInput = kucoinInput;
-        valueBinanceInput = binanceInput;
-      }
-      if (outputCurrency !== 'USDT') {
-        const kucoinOutput = await kucoinGetPrice(outputCurrency);
-        const binanceOutput = await binanceGetPrice(outputCurrency);
-        valueKucoinOutput = kucoinOutput;
-        valueBinanceOutput = binanceOutput;
+      let bestExchange = prices[0];
+      for (const price of prices) {
+        if (inputAmount * price.price > inputAmount * bestExchange.price) {
+          bestExchange = price;
+        }
       }
 
-      if (valueBinanceOutput < valueKucoinOutput) {
-        return {
-          exchangeName: ExchangeName.KuCoin,
-          outputAmount: calculateConvertedValue(
-            valueKucoinInput,
-            valueKucoinOutput,
-            inputAmount,
-          ),
-        };
-      } else {
-        return {
-          exchangeName: ExchangeName.Binance,
-          outputAmount: calculateConvertedValue(
-            valueBinanceInput,
-            valueBinanceOutput,
-            inputAmount,
-          ),
-        };
-      }
+      return {
+        exchangeName: bestExchange.exchangeName,
+        outputAmount: inputAmount * bestExchange.price,
+      };
     } catch (error) {
-      throw error;
+      throw new BadRequestException(
+        `In one of exchangers no this combination ${inputCurrency}/${outputCurrency} try other combination`,
+      );
     }
   }
 
   async getRates({ baseCurrency, quoteCurrency }) {
     try {
-      let kucoinBase = 1,
-        binanceBase = 1,
-        kucoinQuote = 1,
-        binanceQuote = 1;
+      const prices = await getPrices(
+        this.exchanges,
+        baseCurrency,
+        quoteCurrency,
+      );
 
-      if (baseCurrency !== 'USDT') {
-        kucoinBase = await kucoinGetPrice(baseCurrency);
-        binanceBase = await binanceGetPrice(baseCurrency);
-      }
-      if (quoteCurrency !== 'USDT') {
-        kucoinQuote = await kucoinGetPrice(quoteCurrency);
-        binanceQuote = await binanceGetPrice(quoteCurrency);
-      }
-
-      const resultKucoin = kucoinBase / kucoinQuote;
-      const resultBinance = binanceBase / binanceQuote;
-
-      return [
-        {
-          exchangeName: ExchangeName.Binance,
-          rate: resultBinance,
-        },
-        {
-          exchangeName: ExchangeName.KuCoin,
-          rate: resultKucoin,
-        },
-      ];
+      return prices.map((price) => ({
+        exchangeName: price.exchangeName,
+        rate: price.price,
+      }));
     } catch (error) {
-      throw error;
+      throw new BadRequestException(
+        `In one of exchangers no this combination ${baseCurrency}/${quoteCurrency} try other combination`,
+      );
     }
   }
 }
