@@ -55,10 +55,19 @@ export class ExchangesService {
 
   async getRates({ baseCurrency, quoteCurrency }) {
     try {
-      const kucoinBase = await kucoinGetPrice(baseCurrency);
-      const binanceBase = await binanceGetPrice(baseCurrency);
-      const kucoinQuote = await kucoinGetPrice(quoteCurrency);
-      const binanceQuote = await binanceGetPrice(quoteCurrency);
+      let kucoinBase = 1,
+        binanceBase = 1,
+        kucoinQuote = 1,
+        binanceQuote = 1;
+
+      if (baseCurrency !== 'USDT') {
+        kucoinBase = await kucoinGetPrice(baseCurrency);
+        binanceBase = await binanceGetPrice(baseCurrency);
+      }
+      if (quoteCurrency !== 'USDT') {
+        kucoinQuote = await kucoinGetPrice(quoteCurrency);
+        binanceQuote = await binanceGetPrice(quoteCurrency);
+      }
 
       const resultKucoin = kucoinBase / kucoinQuote;
       const resultBinance = binanceBase / binanceQuote;
