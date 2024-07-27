@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getPrices } from './exchanges.utils';
-import { BinanceExchange } from './exchanges/binance.exchange';
-import { KuCoinExchange } from './exchanges/kuckoin.exchange';
-import { Exchange } from './exchanges/exchange.interface';
+import { BinanceExchange } from './exchange/binance.exchange';
+import { KuCoinExchange } from './exchange/kuckoin.exchange';
+import { Exchange } from './exchange/exchange.interface';
 
 @Injectable()
 export class ExchangesService {
